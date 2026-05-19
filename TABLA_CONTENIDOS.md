@@ -226,8 +226,8 @@ lab-control-Discreto/
 - **GitHub Repo:** https://github.com/Santi4216/Control-Discreto-Tanques-
 - **Autor:** Santiago García
 - **Universidad:** UMNG
-- **Carrera:** Ingeniería en Control
-- **Semestre:** 8vo
+- **Carrera:** Ingeniería Mecatrónica
+- **Semestre:** 7º
 - **Año:** 2026
 
 ---

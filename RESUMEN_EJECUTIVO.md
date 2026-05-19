@@ -198,7 +198,7 @@ Aplicación Python
 > Desarrollé un sistema de **control automatizado para tanques hidráulicos**. Incluye una **aplicación de escritorio profesional** en Python, **firmware en un microcontrolador ESP32**, y **análisis de precisión en tiempo real**. Todo está documentado en GitHub y alcanza **precisión superior al 99%**.
 
 ### "En 2 minutos"
-> Este fue un proyecto integrador de 8vo semestre en Ingeniería de Control. Desarrollé tanto el **hardware** (circuitos, conexiones, componentes) como el **software** (interfaz gráfica, firmware, análisis de datos).
+> Este fue un proyecto integrador de 7º semestre en Ingeniería Mecatrónica. Desarrollé tanto el **hardware** (circuitos, conexiones, componentes) como el **software** (interfaz gráfica, firmware, análisis de datos).
 
 > El sistema llena automáticamente 2 tanques con precisión, controlando bomba y válvulas desde una interfaz. La aplicación está construida con **PyQt6** en Python y se comunica con un **ESP32-S3** vía USB serial.
 
