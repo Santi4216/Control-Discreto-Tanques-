@@ -1,0 +1,575 @@
+# 🔌 PINOUT Y CONEXIONES - SISTEMA HIDRÁULICO 2 TANQUES
+
+---
+
+# 📍 VISTA GENERAL DEL SISTEMA
+
+```
+                    ┌──────────────────────────────────┐
+                    │      PC (Python + PyQt6)          │
+                    │      [Interfaz Control]           │
+                    └──────────┬───────────────────────┘
+                               │ USB-C (115200 baud)
+                               │
+        ┌──────────────────────▼───────────────────────┐
+        │         ESP32-S3 DevKit (microcontrolador)   │
+        │                                              │
+        │  ┌────┐  ┌────┐  ┌────┐  ┌────┐  ┌────┐    │
+        │  │G17 │  │G18 │  │G19 │  │G7  │  │GND │    │
+        │  └─┬──┘  └─┬──┘  └─┬──┘  └─┬──┘  └─┬──┘    │
+        └────┼───────┼───────┼───────┼───────┼────────┘
+             │       │       │       │       │
+    ┌────────┘       │       │       │       └────────────────┐
+    │                │       │       │                        │
+    ▼                ▼       ▼       ▼                        ▼
+┌─────────┐    ┌──────────┐ ┌──────────┐ ┌────────┐    ┌──────────┐
+│ L298N   │    │ Servo 1  │ │ Servo 2  │ │LED 330Ω│    │   GND    │
+│ +PWM    │    │ Valve 1  │ │ Valve 2  │ │ Status │    │COMPARTIDA│
+│ H-Bridge│    │Tank1(45 °│ │Tank2(45°)│ │ 5V LED │    │          │
+└─────────┘    │ -135°)   │ │-135°)    │ └────────┘    └──────────┘
+    │          └──────────┘ └──────────┘
+    │
+    ▼
+┌─────────────┐
+│Bomba 12V    │
+│  Hidráulica │
+└─────────────┘
+```
+
+---
+
+# 1️⃣ CONEXIONES GPIO DEL ESP32-S3
+
+## 📊 Tabla Rápida
+
+| 🔌 Pin | 📍 Función | 🔋 Tensión | 📤 Salida | 📝 Notas |
+|:---:|:---|:---:|:---:|:---|
+| **GPIO 17** | 🔷 BOMBA PWM | 3.3V | ← L298N IN1 | Velocidad 0-255 |
+| **GPIO 18** | 🟢 SERVO 1 PWM | 3.3V | ← Válvula T1 | 45°=Cierra, 135°=Abre |
+| **GPIO 19** | 🔵 SERVO 2 PWM | 3.3V | ← Válvula T2 | 45°=Cierra, 135°=Abre |
+| **GPIO 7** | 💡 LED STATUS | 3.3V | → LED Indicador | HIGH=ON, LOW=OFF |
+| **GND** | 🔱 TIERRA COMÚN | 0V | ↔ TODO | ⚠️ **CRÍTICO** |
+| **5V** | ⚡ ALIMENTACIÓN | +5V | → Servos | USB o externo |
+
+---
+
+# 2️⃣ CONEXIÓN BOMBA + L298N (POTENCIA 12V)
+
+## Diagrama Detallado
+
+```
+     ┌───────────────────────────────────────────────────┐
+     │                                                   │
+   (+)12V                                             (-)GND
+     │                                                   │
+     │                 ┌──────────────┐                 │
+     ├────────────────→│  +12V   GND  │←────────────────┤
+     │                 │              │                 │
+     │     ┌───────────┤ L298N        │                 │
+     │     │           │ H-Bridge     │                 │
+     │     │           │              │                 │
+     │  ┌──┴──┐        │              │                 │
+     │  │     │        │  IN1  IN2    │                 │
+     │  │     │    ┌───┤ (PWM) (GND)  │                 │
+     │  │     │    │   │              │                 │
+     │  │     │ (GPIO17)              │                 │
+     │  │     │    │   │ OUT1  OUT2   │                 │
+     │  │     │    │   ├──┬───────┬───┤                 │
+     │  │     │    │   │  │       │   │                 │
+     │  │ ESP │    │   │  │       │   │                 │
+     │  │ 32  │    │   │  │       │   │                 │
+     │  │ S3  │    └───┘  │       │   │                 │
+     │  │     │           │       │   │                 │
+     │  │ GND │───────────┼───────┼───┼─────────────────┤
+     │  │     │           │       │   │                 │
+     │  └─────┘           │       │   │                 │
+     │                    │       │   │                 │
+     │                    ▼       ▼   │                 │
+     │                ┌────────────┐  │                 │
+     │                │  Bomba 12V │  │                 │
+     │                │ Hidráulica │  │                 │
+     │                └────────────┘  │                 │
+     │                                 │                 │
+     └─────────────────────────────────┴─────────────────┘
+                   TIERRA COMÚN (GND)
+```
+
+## 📋 Lista de Conexiones L298N
+
+```
+TERMINALES L298N (vista frontal):
+┌───────────────────────────────┐
+│ +12V │ GND │ IN1 │ IN2 │ OUT1 OUT2 │
+└────┬──────┬──────┬─────┬────────────┘
+     │      │      │     │
+     │      │      │     └─────────────┐
+     │      │      │                   │
+     ▼      ▼      ▼                   ▼
+  +12V   GND   GPIO17      (Bomba 12V negativo)
+  ↑      ↑      (PWM)
+  │      │
+  │      └─ Fuente 12V GND (compartida con ESP32)
+  │
+  └─ Fuente 12V positivo
+
+CONEXIÓN A BOMBA:
+┌──────────────────────────┐
+│ Bomba 12V Hidráulica     │
+│ Positivo  ←  OUT1 (L298N)│
+│ Negativo  ←  OUT2 (L298N)│
+└──────────────────────────┘
+```
+
+---
+
+# 3️⃣ CONEXIÓN SERVOS (CONTROL 5V PWM)
+
+## Servo 1 - Válvula Tank 1
+
+```
+             ┌───────────────────┐
+             │  SERVO 1 HEADER   │
+             │  (3 cables)       │
+             └────┬──┬───┬───────┘
+                  │  │   │
+          (Rojo) │  │   │ (Amarillo/Blanco)
+                  │  │   │
+                  │  │   └─ PWM (señal)
+                  │  │
+                  │  └───── GND (negro)
+                  │
+                  └──────── +5V (rojo)
+
+    CONEXIÓN A ESP32:
+
+    ┌──────────────────────────────┐
+    │  ESP32-S3                    │
+    │                              │
+    │  GPIO 18 ──→ [amarillo/blanco]
+    │                              │
+    │  GND ──────→ [negro]         │
+    │             (compartida)     │
+    │                              │
+    │  +5V ──────→ [rojo]          │
+    │             (USB o externo)  │
+    └──────────────────────────────┘
+
+VALORES IMPORTANTES:
+┌──────────────────────────────────┐
+│ Ángulo 45°   = CERRADO (cierra T1)
+│ Ángulo 135°  = ABIERTO (abre T1) │
+│ Frecuencia   = 50Hz (servo estándar)
+│ PWM Duty Cycle = GPIO 18          │
+└──────────────────────────────────┘
+```
+
+## Servo 2 - Válvula Tank 2
+
+```
+             ┌───────────────────┐
+             │  SERVO 2 HEADER   │
+             │  (3 cables)       │
+             └────┬──┬───┬───────┘
+                  │  │   │
+          (Rojo) │  │   │ (Amarillo/Blanco)
+                  │  │   │
+                  │  │   └─ PWM (señal)
+                  │  │
+                  │  └───── GND (negro)
+                  │
+                  └──────── +5V (rojo)
+
+    CONEXIÓN A ESP32:
+
+    ┌──────────────────────────────┐
+    │  ESP32-S3                    │
+    │                              │
+    │  GPIO 19 ──→ [amarillo/blanco]
+    │                              │
+    │  GND ──────→ [negro]         │
+    │             (compartida)     │
+    │                              │
+    │  +5V ──────→ [rojo]          │
+    │             (USB o externo)  │
+    └──────────────────────────────┘
+
+VALORES IMPORTANTES:
+┌──────────────────────────────────┐
+│ Ángulo 45°   = CERRADO (cierra T2)
+│ Ángulo 135°  = ABIERTO (abre T2) │
+│ Frecuencia   = 50Hz (servo estándar)
+│ PWM Duty Cycle = GPIO 19          │
+└──────────────────────────────────┘
+```
+
+---
+
+# 4️⃣ CONEXIÓN LED INDICADOR DE ESTADO
+
+```
+┌──────────────────────────────────────┐
+│  GPIO 7 (Salida)                     │
+└────┬─────────────────────────────────┘
+     │
+     │  (cable amarillo)
+     │
+     ▼
+┌────────────────┐
+│  LED (+) ánodo│
+│    (largo)     │
+└────┬───────────┘
+     │
+     │
+     ▼ (cable hacia tierra)
+ ┌──────────────┐
+ │ Resistencia  │
+ │   330Ω      │
+ └────┬─────────┘
+      │
+      │
+      ▼
+ ┌──────────────┐
+ │  LED (-) cátodo
+ │   (corto)    │
+ └────┬─────────┘
+      │
+      │  (cable negro)
+      │
+      ▼
+   [GND] TIERRA COMÚN
+
+FUNCIONAMIENTO:
+┌─────────────────────┐
+│ GPIO 7 = HIGH (5V)  │
+│ → LED ENCENDIDO     │
+│ (Sistema activo)    │
+└─────────────────────┘
+
+┌─────────────────────┐
+│ GPIO 7 = LOW (0V)   │
+│ → LED APAGADO       │
+│ (Sistema idle)      │
+└─────────────────────┘
+```
+
+---
+
+# 5️⃣ TIERRA COMÚN (🔴 CRÍTICO)
+
+## ¿Por qué es importante?
+
+```
+✅ SI TODAS LAS TIERRAS ESTÁN CONECTADAS:
+   ┌───────────────────────┐
+   │ Fuente 12V (-) GND    │
+   │ ESP32 GND             │
+   │ L298N GND             │
+   │ Servos GND            │
+   │ LED (-) GND           │
+   └─────────────────────── PUNTO COMÚN
+   
+   Resultado: ✓ Sistema estable, sin ruido
+
+❌ SI LAS TIERRAS ESTÁN SEPARADAS:
+   ┌─────────────────┐ ┌─────────────────┐
+   │ Fuente 12V GND  │ │ ESP32 GND       │
+   └──────┬──────────┘ └────────┬────────┘
+          │                     │
+          (sin conexión)
+   
+   Resultado: ✗ Ruido, comportamiento erático
+              ✗ Servos no responden
+              ✗ Comunicación serial fallida
+              ✗ Lecturas falsas
+```
+
+## Esquema de Tierra Común Correcto
+
+```
+                    PUNTO GND CENTRAL
+                            │
+         ┌──────────────────┼──────────────────┐
+         │                  │                  │
+         │                  │                  │
+         ▼                  ▼                  ▼
+    ┌────────┐         ┌────────┐       ┌──────────┐
+    │Fuente  │         │ESP32   │       │L298N +   │
+    │12V     │         │  GND   │       │Servos    │
+    │  GND   │         │        │       │  GND     │
+    └────────┘         └────────┘       └──────────┘
+
+PASO A PASO:
+1. Saca tierra de Fuente 12V (cable negro grueso)
+2. Saca tierra de ESP32 (cable negro fino)
+3. Saca tierra de L298N (cable negro)
+4. Saca tierra de ambos Servos (cables negros)
+5. Conecta TODOS los cables negros en UN punto común
+   (puedes usar un riel DIN o un conector de terminal múltiple)
+```
+
+---
+
+# 6️⃣ ALIMENTACIÓN 5V PARA SERVOS
+
+## Opción A: Usar 5V del ESP32 (Servos ligeros)
+
+```
+┌─────────────────────────────────────┐
+│         USB-C Power Bank             │
+│          (5V 2A)                     │
+└────┬───────────────────────┬────────┘
+     │                       │
+    (+)5V                   (-)GND
+     │                       │
+     │     ┌─────────────┐   │
+     ├────→│ ESP32-S3    │←──┤
+     │     │   +5V       │   │
+     │     │   GND       │   │
+     │     └────┬──────┬─┘   │
+     │          │      │     │
+     │    ┌─────┴─┐  ┌─┴─────┘
+     │    │       │  │
+     ▼    ▼       ▼  ▼
+    Servo1    Servo2  (GND compartida)
+    5V PWM    5V PWM
+
+✅ VENTAJA: Simple, 1 sola conexión USB
+❌ DESVENTAJA: Máximo 500mA (2 servos ligeros)
+```
+
+## Opción B: Fuente Externa 5V (Servos pesados)
+
+```
+┌─────────────┐              ┌──────────────┐
+│ Fuente 5V   │              │  Fuente 12V  │
+│   2A        │              │              │
+└────┬───┬───┘               └────┬───┬────┘
+     │   │                        │   │
+    (+) (-)                      (+) (-)
+     │   │                        │   │
+     │   │                        │   │
+     │   │    ┌──────────────┐   │   │
+     │   ├───→│ ESP32-S3     │←──┤   │
+     │   │    │              │   │   │
+     │   │    └──────────────┘   │   │
+     │   │           │           │   │
+     │   │      ┌────┴────┐      │   │
+     │   │      │         │      │   │
+     │   │   ┌──┴──┐  ┌──┴──┐   │   │
+     │   └──→│Servo│  │Servo│←──┤   │
+     │       │  1  │  │  2  │   │   │
+     │       └─────┘  └─────┘   │   │
+     │                           │   │
+     │                    ┌──────┘   │
+     │                    │          │
+     └────────────────────┼──────────┘
+                          │
+                     [GND COMÚN]
+
+✅ VENTAJA: Potencia suficiente para servos pesados
+✅ VENTAJA: 2 fuentes independientes
+⚠️  IMPORTANTE: GND debe estar compartida
+```
+
+---
+
+# 7️⃣ USB - COMUNICACIÓN SERIAL
+
+```
+┌──────────────────────┐
+│   PC (Windows)       │
+│   Puerto COM#        │
+└─────────┬────────────┘
+          │
+          │ USB-C Cable
+          │
+          ▼
+┌──────────────────────┐
+│ ESP32-S3 DevKit      │
+│ USB-C Connector      │
+│ (UART 115200 baud)   │
+└──────────────────────┘
+
+CONFIGURACIÓN SERIAL:
+┌─────────────────────────────┐
+│ Velocidad: 115200 baud      │
+│ Data bits: 8                │
+│ Stop bits: 1                │
+│ Parity: None (8N1)          │
+│ Flow control: None          │
+└─────────────────────────────┘
+
+CONEXIÓN AUTOMÁTICA:
+└─→ USB-C del ESP32 proporciona:
+    • Comunicación UART (datos)
+    • Alimentación 5V (USB power)
+    • Tierra común (GND)
+```
+
+---
+
+# 8️⃣ DIAGRAMA COMPLETO (VISTA INTEGRAL)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│                        PC (Python PyQt6)                           │
+│                    ┌──────────────────┐                            │
+│                    │  Manual Control  │ ← Controla manualmente    │
+│                    │  Timed Control   │ ← Configura tiempos       │
+│                    │  Monitor         │ ← Visualiza progreso      │
+│                    └────────┬─────────┘                            │
+│                             │ USB-C 115200 baud                    │
+│                             │                                       │
+│              ┌──────────────▼────────────────┐                     │
+│              │    ESP32-S3 DevKit            │                     │
+│              │  ┌────────────────────────┐   │                     │
+│              │  │ GPIO 17 → L298N IN1    │   │                     │
+│              │  │ GPIO 18 → Servo 1 PWM  │   │                     │
+│              │  │ GPIO 19 → Servo 2 PWM  │   │                     │
+│              │  │ GPIO 7  → LED STATUS   │   │                     │
+│              │  │ GND ──→ TIERRA COMÚN   │   │                     │
+│              │  │ 5V  ──→ Alimentación   │   │                     │
+│              │  └────┬───┬────┬────┬─────┘   │                     │
+│              └───────┼───┼────┼────┼─────────┘                     │
+│                      │   │    │    │                               │
+│        ┌─────────────┘   │    │    └──────────────────┐            │
+│        │                 │    │                       │            │
+│        ▼                 ▼    ▼                       ▼            │
+│   ┌─────────┐    ┌────────┐ ┌────────┐         ┌──────────┐      │
+│   │ L298N   │    │Servo 1 │ │Servo 2 │         │   GND    │      │
+│   │ H-Bridge│    │Valve T1│ │Valve T2│         │COMPARTIDA│      │
+│   └────┬────┘    └────────┘ └────────┘         └──────────┘      │
+│        │                                                          │
+│        ▼                                                          │
+│    ┌────────┐                                                    │
+│    │ Bomba  │                                                    │
+│    │ 12V    │                                                    │
+│    └────────┘                                                    │
+│                                                                  │
+│   ⚠️ TODAS LAS TIERRAS CONECTADAS EN PUNTO COMÚN                 │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────────┘
+
+FLUJO DE CONTROL:
+PC → [USB] → ESP32 → [GPIO 17] → L298N → Bomba
+           ↓        [GPIO 18] → Servo 1
+           ↓        [GPIO 19] → Servo 2
+           ↓        [GPIO 7]  → LED
+           
+FLUJO DE RETROALIMENTACIÓN:
+Bomba/Servos → [UART] → ESP32 → [USB] → PC (Telemetría)
+```
+
+---
+
+# ✅ CHECKLIST PRE-ENCENDIDO
+
+```
+PASO 1: VERIFICACIÓN VISUAL
+┌─────────────────────────────────────┐
+□ ESP32-S3 sin daños físicos          
+□ Cables sin peladura de aislante     
+□ Conectores bien insertados           
+□ Fuente 12V disponible y probada     
+└─────────────────────────────────────┘
+
+PASO 2: CONEXIONES CRÍTICAS
+┌─────────────────────────────────────┐
+□ GPIO 17 → L298N IN1 (BOMBA PWM)    
+□ GPIO 18 → Servo 1 (VALVE TANK1)    
+□ GPIO 19 → Servo 2 (VALVE TANK2)    
+□ GPIO 7  → LED + 330Ω (STATUS)      
+□ GND compartida en punto central      
+□ Fuente 12V (-) conectada a GND      
+□ Servos con 5V + GND compartida      
+└─────────────────────────────────────┘
+
+PASO 3: PROTECCIONES
+┌─────────────────────────────────────┐
+□ Fusible 15A instalado               
+□ Capacitor 100µF en +12V             
+□ Diodo freewheeling en bomba         
+└─────────────────────────────────────┘
+
+PASO 4: FIRMWARE Y SOFTWARE
+┌─────────────────────────────────────┐
+□ Firmware cargado en ESP32 (Arduino) 
+□ Python con PyQt6 instalado          
+□ Puerto COM identificado             
+└─────────────────────────────────────┘
+```
+
+---
+
+# 🚀 SECUENCIA DE ENCENDIDO
+
+```
+1. Verifica checklist completo ← ¡NO SALTES ESTO!
+
+2. Conecta USB-C (carga firmware)
+   → LED debe parpadear brevemente
+
+3. Abre terminal y ejecuta:
+   python main.py
+   → Interfaz PyQt6 debe abrirse
+
+4. En Manual Control (Ctrl+1):
+   → Prueba PUMP (debe encenderse bomba)
+   → Prueba SERVO1 (debe girar a 45°/135°)
+   → Prueba SERVO2 (debe girar a 45°/135°)
+
+5. Si TODO funciona:
+   ✓ Mide tiempos de llenado
+   ✓ Configura en Timed Control
+   ✓ Ejecuta secuencia automática
+
+6. Si algo NO funciona:
+   → Ver Troubleshooting más abajo
+```
+
+---
+
+# ❌ TROUBLESHOOTING RÁPIDO
+
+| 🔴 PROBLEMA | 🔍 CAUSA | ✅ SOLUCIÓN |
+|:---|:---|:---|
+| **LED no enciende** | USB no conectado | Conecta USB-C al PC |
+| **Bomba no se mueve** | Tierra no compartida | Verifica GND común |
+| | GPIO 17 no conectado | Revisa L298N IN1 |
+| | L298N sin potencia | Verifica +12V y GND |
+| **Servo tiembla** | Ruido en señal | Separa cables potencia/señal |
+| | Servo sin 5V | Verifica 5V en servo |
+| **Servo no responde** | PWM invertido | Invierte ángulos (45↔135) |
+| | GPIO 18/19 mal | Revisa conexión a servos |
+| **No hay comunicación** | Puerto COM incorrecto | Abre Arduino IDE, identifica COM |
+| | Baud rate incorrecto | Verifica 115200 en código |
+| | Firmware no cargado | Sube firmware via Arduino IDE |
+| **Fusible quema** | Cortocircuito en bomba | Desconecta y revisa bomba |
+| | Polaridad invertida | Verifica +/- en L298N |
+| **Todo funciona pero lento** | PWM bajo | Aumenta valor PWM (0-255) |
+
+---
+
+# 📞 SOPORTE RÁPIDO
+
+```
+¿Duda sobre un cable?
+→ Busca en "DIAGRAMA COMPLETO" (Sección 8️⃣)
+
+¿No sabes si una tierra está conectada?
+→ Ve a "TIERRA COMÚN" (Sección 5️⃣)
+
+¿Servo no se mueve?
+→ Ve a "TROUBLESHOOTING" (último)
+
+¿Necesitas ver cómo conectar todo?
+→ Ve a "DIAGRAMA COMPLETO" (Sección 8️⃣)
+```
+
+---
+
+**📅 Última revisión:** 12-05-2026  
+**🎯 Sistema:** Control Hidráulico 2 Tanques  
+**🖥️ Plataforma:** ESP32-S3 + PyQt6  
+**✅ Estado:** Listo para hardware
